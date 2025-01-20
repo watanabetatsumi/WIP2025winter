@@ -1,0 +1,39 @@
+version: "3.8"
+
+# ネットワーク(NAME: DTN_bridge)の定義
+networks:
+  DTN_bridge:
+    name: DTN_bridge
+    driver: bridge
+
+# コンテナの定義
+services:
+  client:
+    image: custom-client
+    networks:
+      - DTN_bridge
+    container_name: client
+    stdin_open: true
+    tty: true
+
+  gateway:
+    image: custom-gateway
+    networks:
+      - DTN_bridge
+    container_name: gateway
+    # depends_on: は、コンテナの起動順序を指定する
+    depends_on:
+      - apache1
+      - apache2
+
+  apache1:
+    image: custom-server
+    networks:
+      - DTN_bridge
+    container_name: apache1
+
+  apache2:
+    image: custom-server
+    networks:
+      - DTN_bridge
+    container_name: apache2
