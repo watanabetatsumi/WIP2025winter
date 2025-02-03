@@ -1,9 +1,9 @@
 package main
 
-import {
-	"github.com/WIP2025winter/TCPIP/tcpip"
-}
+import "github.com/WIP2025winter/TCPIP/protocol"
 
 func main() {
-	tcpip.arp()
+	protocol.ARP()
+
+	return
 }
