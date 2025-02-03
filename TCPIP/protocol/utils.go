@@ -89,9 +89,9 @@ func toByteArr(value interface{}) []byte {
 func printByteArr(arr []byte) string {
 	var str string
 
-	// %xは値を16進数の文字で表示する。
+	// %xは値(1byteごと)を16進数の文字で表示する。
 	for _, v := range arr {
-		str += fmt.Sprintf("%x", v)
+		str += fmt.Sprintf("%x ", v)
 	}
 
 	return str

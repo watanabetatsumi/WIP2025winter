@@ -107,7 +107,7 @@ func parseArpPacket(packet []byte) entity.ArpFrame {
 	}
 }
 
-func ARP() {
+func ARP(ipAddr string) {
 	// ローカルのMACアドレスを取得
 	localif, err := getLocalIpAddr("eth0")
 	if err != nil {
@@ -118,6 +118,7 @@ func ARP() {
 	ethernetframe := NewEthernet(
 		[]byte{
 			// ブロードキャストなので、MACアドレス（6byte）のすべてのビットを1にする。
+			// イーサーネットフレームはL2で動作するので、MACアドレスでやり取りをする。
 			0xff,
 			0xff,
 			0xff,
@@ -130,14 +131,14 @@ func ARP() {
 	)
 
 	// ARPリクエストを作成
-	arpReq := NewArpRequest(localif, "192.168.32.1")
+	arpReq := NewArpRequest(localif, ipAddr)
 
 	var sendArp []byte
 
 	// イーサーネットフレームヘッダ(byte列に加工してに加工して)を
 	sendArp = append(sendArp, toByteArr(ethernetframe)...)
 	// ARPフレーム(byte列に加工してに加工して)に
-	sendArp = append(sendArp, toByteArr(arpReq)...)
+	sendArp = append(sendArp, toByteArr(arpReq.ArpFrame)...)
 
 	arpreply := arpReq.Send(localif.Index, sendArp)
 
