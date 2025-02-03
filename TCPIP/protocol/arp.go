@@ -107,7 +107,7 @@ func parseArpPacket(packet []byte) entity.ArpFrame {
 	}
 }
 
-func arp() {
+func ARP() {
 	// ローカルのMACアドレスを取得
 	localif, err := getLocalIpAddr("eth0")
 	if err != nil {
