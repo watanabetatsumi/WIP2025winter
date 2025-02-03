@@ -1,13 +1,22 @@
 package tcpip
 
 import (
+	"fmt"
 	"log"
 	"syscall"
 
 	"github.com/WIP2025winter/TCPIP/entity"
 )
 
-func NewArpRequest(local LocalIpMacAddr, targetIP string) entity.ArpFrame {
+type Arp interface {
+	Send(dstMacAddr int, packet []byte)
+}
+
+type ArpFrame struct {
+	entity.ArpFrame
+}
+
+func NewArpRequest(local LocalIpMacAddr, targetIP string) ArpFrame {
 	arp := entity.ArpFrame{
 		// イーサーネットの場合、0x0001(2バイト長)で固定。
 		HardwareType: []byte{0x00, 0x01},
@@ -29,10 +38,12 @@ func NewArpRequest(local LocalIpMacAddr, targetIP string) entity.ArpFrame {
 		TargetIpAddr: Ip2Byte(targetIP),
 	}
 
-	return arp
+	Arp := ArpFrame{arp}
+
+	return Arp
 }
 
-func (*entity.ArpFrame) Send(dstMacAddr int, packet []byte) entity.ArpFrame {
+func (ArpFrame) Send(dstMacAddr int, packet []byte) entity.ArpFrame {
 	// syscall.SockaddrLinkLayerという形（RAWソケット向け）を介して、カーネル空間のSocketディスクリプタに
 	// 書き込む。
 	addr := syscall.SockaddrLinklayer{
@@ -50,7 +61,7 @@ func (*entity.ArpFrame) Send(dstMacAddr int, packet []byte) entity.ArpFrame {
 	//  傍受したいのは、イーサーネットフレームのうちARP部分なのか、IPパケット部分なのか、ペイロード部分なのか等指定。
 	sendfd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW, int(htons(syscall.ETH_P_ALL)))
 	if err != nil {
-		log.Fatal("create sendfd err : %v\n", err)
+		log.Fatalf("create sendfd err : %v\n", err)
 	}
 	defer syscall.Close(sendfd)
 
@@ -63,8 +74,7 @@ func (*entity.ArpFrame) Send(dstMacAddr int, packet []byte) entity.ArpFrame {
 
 	// レスポンスをListenするために待ち続ける -> forループ
 	for {
-		// ARPパケット自体は28バイト
-		// イーサーネットとARPは同じL2レイヤ->気にする必要はない。
+		// ARPパケット自体は28バイト+イーサーネットフレームの14(~18)バイト=42(~46)バイト
 		recvBuf := make([]byte, 80)
 		// sendfdディスクリプタ（インターフェース）を介して、レスポンスを読み取り、recvBufに書き込む
 		_, _, err := syscall.Recvfrom(sendfd, recvBuf, 0)
@@ -95,4 +105,41 @@ func parseArpPacket(packet []byte) entity.ArpFrame {
 		TargetMacAddr: packet[18:24],
 		TargetIpAddr:  packet[24:28],
 	}
+}
+
+func arp() {
+	// ローカルのMACアドレスを取得
+	localif, err := getLocalIpAddr("eth0")
+	if err != nil {
+		log.Fatalf("getLocalIpAddr err : %v\n", err)
+	}
+
+	// イーサーネットフレームを作成
+	ethernetframe := NewEthernet(
+		[]byte{
+			// ブロードキャストなので、MACアドレス（6byte）のすべてのビットを1にする。
+			0xff,
+			0xff,
+			0xff,
+			0xff,
+			0xff,
+			0xff,
+		},
+		localif.LocalMacAddr,
+		"ARP",
+	)
+
+	// ARPリクエストを作成
+	arpReq := NewArpRequest(localif, "192.168.32.1")
+
+	var sendArp []byte
+
+	// イーサーネットフレームヘッダ(byte列に加工してに加工して)を
+	sendArp = append(sendArp, toByteArr(ethernetframe)...)
+	// ARPフレーム(byte列に加工してに加工して)に
+	sendArp = append(sendArp, toByteArr(arpReq)...)
+
+	arpreply := arpReq.Send(localif.Index, sendArp)
+
+	fmt.Printf("ARP Reply : %s\n", printByteArr(arpreply.SenderMacAddr))
 }
